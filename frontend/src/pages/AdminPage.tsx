@@ -35,7 +35,7 @@ const AdminPage: React.FC = () => {
       setStats(statsData);
       setPendingUsers(pendingData);
       setLastUpdate(new Date(statsData.updatedAt));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка загрузки данных:', error);
       // Если ошибка авторизации, перенаправить на логин
       if (error.message.includes('401') || error.message.includes('Ошибка авторизации')) {
@@ -54,7 +54,7 @@ const AdminPage: React.FC = () => {
         ...prev, 
         pendingVerifications: prev.pendingVerifications - 1 
       }));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Ошибка верификации:', error);
     }
   };
