@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: cunninghares-db
+    environment:
+      POSTGRES_DB: cunninghares
+      POSTGRES_USER: cunninghares_user
+      POSTGRES_PASSWORD: xswedc71
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: cunninghares-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: rezanovnikita86@gmail.com
+      PGADMIN_DEFAULT_PASSWORD: xswedc71
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    user: root 
+
+volumes:
+  postgres_data:
+  pgadmin_data:

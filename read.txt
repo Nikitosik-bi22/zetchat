@@ -1,0 +1,39 @@
+
+1) Запуск в PH 
+
+cloudflared tunnel --url http://localhost:3000
+cloudflared tunnel --url http://localhost:3000 --protocol http2
+cloudflared tunnel --url http://localhost:3000 --protocol http2 --edge-ip-version 4
+cloudflared tunnel --url http://localhost:3000 --protocol http2 --edge-ip-version 4 --loglevel info
+
+
+
+
+
+netsh advfirewall firewall add rule name="Cunninghares Frontend 3000" dir=in action=allow protocol=TCP localport=3000
+netsh advfirewall firewall add rule name="Cunninghares Backend 5000" dir=in action=allow protocol=TCP localport=5000
+
+
+
+Терминал №1 (БД)
+
+Из корня cunninghares (или где docker-compose.yml):
+
+cd "D:\Сообщество ZZZ\ЧАТ\cunninghares"
+docker compose up -d
+docker compose ps
+
+Терминал №2 (Backend)
+cd "D:\Сообщество ZZZ\ЧАТ\cunninghares\backend"
+npm run dev
+
+Терминал №3 (Frontend)
+cd "D:\Сообщество ZZZ\ЧАТ\cunninghares\frontend"
+npm run dev
+
+
+Важно: pgAdmin на http://localhost:5050 — это только база.
+Сам сайт (frontend) — http://localhost:3000 (или 3001).
+Backend API — http://localhost:5000.
+
+
