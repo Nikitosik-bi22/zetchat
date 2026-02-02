@@ -12,49 +12,71 @@ const AdminPage: React.FC = () => {
     pendingVerifications: 0,
     newUsersToday: 0
   });
-  
+
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<'overview' | 'verification' | 'users'>('overview');
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     loadData();
-    // Автообновление каждые 30 секунд
     const interval = setInterval(loadData, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return 'Unknown error';
+    }
+  };
+
   const loadData = async () => {
     try {
       const [statsData, pendingData] = await Promise.all([
         adminApi.getStats(),
         adminApi.getPendingVerifications()
       ]);
+
       setStats(statsData);
       setPendingUsers(pendingData);
-      setLastUpdate(new Date(statsData.updatedAt));
-    } catch (error: any) {
+
+      // updatedAt может быть undefined — подстрахуемся
+      if ((statsData as any)?.updatedAt) {
+        setLastUpdate(new Date((statsData as any).updatedAt));
+      } else {
+        setLastUpdate(new Date());
+      }
+    } catch (error: unknown) {
       console.error('Ошибка загрузки данных:', error);
+
+      const msg = getErrorMessage(error);
+
       // Если ошибка авторизации, перенаправить на логин
-      if (error.message.includes('401') || error.message.includes('Ошибка авторизации')) {
+      if (msg.includes('401') || msg.includes('Ошибка авторизации')) {
         navigate('/login');
       }
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleVerify = async (userId: string) => {
     try {
       await adminApi.verifyUser(userId);
-      setPendingUsers(pendingUsers.filter(user => user.id !== userId));
-      setStats(prev => ({ 
-        ...prev, 
-        pendingVerifications: prev.pendingVerifications - 1 
+
+      // безопаснее через функциональное обновление, чтобы не ловить "старый" state
+      setPendingUsers(prev => prev.filter(user => user.id !== userId));
+      setStats(prev => ({
+        ...prev,
+        pendingVerifications: Math.max(0, prev.pendingVerifications - 1)
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Ошибка верификации:', error);
     }
   };
@@ -65,7 +87,6 @@ const AdminPage: React.FC = () => {
     navigate('/login');
   };
 
-  // Если загрузка
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -85,7 +106,7 @@ const AdminPage: React.FC = () => {
             </h1>
             <p className="text-gray-400 mt-2 text-sm md:text-base">
               Последнее обновление: {lastUpdate.toLocaleTimeString()}
-              <button 
+              <button
                 onClick={loadData}
                 className="ml-2 md:ml-4 text-sm bg-gray-800 hover:bg-gray-700 px-3 py-1 rounded transition-colors"
               >
@@ -93,9 +114,9 @@ const AdminPage: React.FC = () => {
               </button>
             </p>
           </div>
-          
+
           <div className="flex gap-3">
-            <button 
+            <button
               onClick={handleLogout}
               className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm transition-colors"
             >
@@ -103,14 +124,14 @@ const AdminPage: React.FC = () => {
             </button>
           </div>
         </div>
-        
+
         {/* Навигационные табы */}
         <div className="flex border-b border-gray-800 mt-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('overview')}
             className={`px-4 py-3 font-medium text-sm md:text-base transition-colors whitespace-nowrap ${
-              activeTab === 'overview' 
-                ? 'text-blue-400 border-b-2 border-blue-400' 
+              activeTab === 'overview'
+                ? 'text-blue-400 border-b-2 border-blue-400'
                 : 'text-gray-400 hover:text-gray-300'
             }`}
           >
@@ -119,8 +140,8 @@ const AdminPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('verification')}
             className={`px-4 py-3 font-medium text-sm md:text-base transition-colors whitespace-nowrap ${
-              activeTab === 'verification' 
-                ? 'text-blue-400 border-b-2 border-blue-400' 
+              activeTab === 'verification'
+                ? 'text-blue-400 border-b-2 border-blue-400'
                 : 'text-gray-400 hover:text-gray-300'
             }`}
           >
@@ -134,8 +155,8 @@ const AdminPage: React.FC = () => {
           <button
             onClick={() => setActiveTab('users')}
             className={`px-4 py-3 font-medium text-sm md:text-base transition-colors whitespace-nowrap ${
-              activeTab === 'users' 
-                ? 'text-blue-400 border-b-2 border-blue-400' 
+              activeTab === 'users'
+                ? 'text-blue-400 border-b-2 border-blue-400'
                 : 'text-gray-400 hover:text-gray-300'
             }`}
           >
@@ -143,62 +164,65 @@ const AdminPage: React.FC = () => {
           </button>
         </div>
       </div>
-      
+
       {/* Контент в зависимости от активной вкладки */}
       {activeTab === 'overview' && (
         <>
           {/* Статистика в сетке */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
-            <StatCard 
-              title="Всего пользователей" 
+            <StatCard
+              title="Всего пользователей"
               value={stats.totalUsers}
               icon="👥"
               color="blue"
               change={stats.newUsersToday}
               changeText="новых за сутки"
             />
-            <StatCard 
-              title="Онлайн сейчас" 
+            <StatCard
+              title="Онлайн сейчас"
               value={stats.onlineUsers}
               icon="🟢"
               color="green"
-              percentage={stats.totalUsers > 0 ? Math.round((stats.onlineUsers / stats.totalUsers) * 100) : 0}
+              percentage={
+                stats.totalUsers > 0
+                  ? Math.round((stats.onlineUsers / stats.totalUsers) * 100)
+                  : 0
+              }
             />
-            <StatCard 
-              title="Всего постов" 
-              value={stats.totalPosts}
-              icon="📝"
-              color="purple"
-            />
-            <StatCard 
-              title="Всего сообщений" 
+            <StatCard title="Всего постов" value={stats.totalPosts} icon="📝" color="purple" />
+            <StatCard
+              title="Всего сообщений"
               value={stats.totalMessages}
               icon="💬"
               color="yellow"
             />
-            <StatCard 
-              title="На верификации" 
+            <StatCard
+              title="На верификации"
               value={stats.pendingVerifications}
               icon="⏳"
               color="orange"
               alert={stats.pendingVerifications > 0}
             />
-            <StatCard 
-              title="Активность" 
-              value={`${stats.totalUsers > 0 ? Math.round((stats.onlineUsers / stats.totalUsers) * 100) : 0}%`}
+            <StatCard
+              title="Активность"
+              value={`${
+                stats.totalUsers > 0
+                  ? Math.round((stats.onlineUsers / stats.totalUsers) * 100)
+                  : 0
+              }%`}
               icon="📊"
               color="pink"
               subtitle="пользователей онлайн"
             />
           </div>
-          
+
           {/* Быстрые действия */}
           <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6 mb-8">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <span className="text-blue-400">⚡</span> Быстрые действия
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button 
+              <button
                 onClick={() => setActiveTab('verification')}
                 className="bg-gray-900 hover:bg-gray-800 border border-gray-700 p-4 rounded-lg transition-colors text-left"
               >
@@ -218,15 +242,13 @@ const AdminPage: React.FC = () => {
               <button className="bg-gray-900 hover:bg-gray-800 border border-gray-700 p-4 rounded-lg transition-colors text-left">
                 <div className="text-lg mb-2">📈</div>
                 <div className="font-medium">Подробная статистика</div>
-                <div className="text-gray-400 text-sm mt-1">
-                  Графики активности и аналитика
-                </div>
+                <div className="text-gray-400 text-sm mt-1">Графики активности и аналитика</div>
               </button>
             </div>
           </div>
         </>
       )}
-      
+
       {activeTab === 'verification' && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4 md:p-6">
           <div className="flex justify-between items-center mb-6">
@@ -237,7 +259,7 @@ const AdminPage: React.FC = () => {
               {pendingUsers.length} пользователей ожидают подтверждения
             </div>
           </div>
-          
+
           {pendingUsers.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-4">🎉</div>
@@ -247,13 +269,20 @@ const AdminPage: React.FC = () => {
           ) : (
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
               {pendingUsers.map(user => (
-                <div key={user.id} className="bg-gray-900/70 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors">
+                <div
+                  key={user.id}
+                  className="bg-gray-900/70 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors"
+                >
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-lg">
                           {user.avatar ? (
-                            <img src={user.avatar} alt={user.username} className="w-10 h-10 rounded-full" />
+                            <img
+                              src={user.avatar}
+                              alt={user.username}
+                              className="w-10 h-10 rounded-full"
+                            />
                           ) : (
                             <span>👤</span>
                           )}
@@ -267,7 +296,8 @@ const AdminPage: React.FC = () => {
                           </div>
                           <p className="text-gray-400 text-sm">{user.email}</p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Зарегистрирован: {new Date(user.createdAt).toLocaleDateString('ru-RU')}
+                            Зарегистрирован:{' '}
+                            {new Date(user.createdAt).toLocaleDateString('ru-RU')}
                           </p>
                         </div>
                       </div>
@@ -290,7 +320,7 @@ const AdminPage: React.FC = () => {
           )}
         </div>
       )}
-      
+
       {activeTab === 'users' && (
         <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
           <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
@@ -305,7 +335,7 @@ const AdminPage: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Футер */}
       <div className="mt-12 pt-6 border-t border-gray-800 text-center text-gray-500 text-sm">
         <p>Административная панель Cunninghares • Версия 1.0.0</p>
@@ -346,20 +376,27 @@ const StatCard: React.FC<{
   };
 
   return (
-    <div className={`border rounded-xl p-5 ${colorClasses[color as keyof typeof colorClasses]} ${alert ? 'animate-pulse border-orange-500' : ''}`}>
+    <div
+      className={`border rounded-xl p-5 ${
+        colorClasses[color as keyof typeof colorClasses]
+      } ${alert ? 'animate-pulse border-orange-500' : ''}`}
+    >
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <div className="text-gray-400 text-sm mb-1 font-medium">{title}</div>
           <div className="text-2xl md:text-3xl font-bold mb-2">{value}</div>
           {subtitle && <div className="text-gray-400 text-xs md:text-sm">{subtitle}</div>}
+
           {change !== undefined && (
             <div className="text-sm mt-2 flex items-center">
               <span className={`font-medium ${change > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {change > 0 ? '↑' : change < 0 ? '↓' : ''} {change > 0 ? '+' : ''}{change}
+                {change > 0 ? '↑' : change < 0 ? '↓' : ''} {change > 0 ? '+' : ''}
+                {change}
               </span>
               <span className="text-gray-400 ml-2">{changeText}</span>
             </div>
           )}
+
           {percentage !== undefined && (
             <div className="mt-3">
               <div className="flex justify-between text-xs text-gray-400 mb-1">
@@ -367,14 +404,15 @@ const StatCard: React.FC<{
                 <span>{percentage}%</span>
               </div>
               <div className="w-full bg-gray-800/70 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-500" 
+                <div
+                  className="bg-gradient-to-r from-green-500 to-emerald-400 h-2 rounded-full transition-all duration-500"
                   style={{ width: `${Math.min(percentage, 100)}%` }}
-                ></div>
+                />
               </div>
             </div>
           )}
         </div>
+
         <div className={`text-2xl md:text-3xl ${iconColors[color as keyof typeof iconColors]}`}>
           {icon}
         </div>
