@@ -1,15 +1,22 @@
 const { Sequelize } = require('sequelize');
-require('dotenv').config(); // Эта строка ОБЯЗАТЕЛЬНА для загрузки .env
+require('dotenv').config();
+
+const isProd = process.env.NODE_ENV === 'production';
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME,       // 'cunninghares'
-  process.env.DB_USER,       // 'cunninghares_user'
-  process.env.DB_PASSWORD,   // 'xswedc71' - будет взято из .env
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
   {
-    host: process.env.DB_HOST, // 'localhost'
-    port: process.env.DB_PORT, // '5432'
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT || 5432),
     dialect: 'postgres',
-    logging: false, // Можно включить для отладки SQL-запросов
+    logging: false,
+    dialectOptions: isProd
+      ? {
+          ssl: { require: true, rejectUnauthorized: false },
+        }
+      : {},
   }
 );
 
